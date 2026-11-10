@@ -1,0 +1,127 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Unit {
+  id                Int                @id @default(autoincrement())
+  name              String             @unique // e.g., "meter", "package"
+  abbreviation      String?            // e.g., "m", "pkg"
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  products          Product[]
+}
+
+model Product {
+  id                Int                @id @default(autoincrement())
+  name              String
+  description       String?
+  price             Decimal            @db.Decimal(10, 2)
+  qty               Int
+  identifier        String             @unique
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  unit              Unit               @relation(fields: [unitId], references: [id])
+  unitId            Int
+
+  attributes        ProductAttribute[]
+  saleItems         SaleItem[]
+  purchasedProducts PurchasedProduct[] 
+
+  @@index([name])
+  @@index([description])
+  @@index([identifier])
+}
+
+model Provider {
+  id        Int        @id @default(autoincrement())
+  name      String
+  contact   String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  purchasedProducts PurchasedProduct[]
+}
+
+model Purchase {
+  id         Int                @id @default(autoincrement())
+  note       String?            
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  items      PurchasedProduct[]
+}
+
+model PurchasedProduct {
+  id         Int      @id @default(autoincrement())
+  price      Decimal  @db.Decimal(10, 2) 
+  qty        Int      
+  // Removed unit String from here to prevent redundancy, as it's inherited from Product
+
+  purchase   Purchase @relation(fields: [purchaseId], references: [id])
+  purchaseId Int
+
+  product    Product  @relation(fields: [productId], references: [id])
+  productId  Int
+
+  provider   Provider? @relation(fields: [providerId], references: [id])
+  providerId Int?
+}
+
+model Attribute {
+  id          Int                @id @default(autoincrement())
+  name        String
+  description String?
+  products    ProductAttribute[]
+}
+
+model ProductAttribute {
+  id          Int       @id @default(autoincrement())
+  product     Product   @relation(fields: [productId], references: [id])
+  productId   Int
+  attribute   Attribute @relation(fields: [attributeId], references: [id])
+  attributeId Int
+}
+
+model User {
+  id       Int    @id @default(autoincrement())
+  username String @unique
+  password String
+  role     String @db.VarChar(100)
+
+  sales    Sale[]
+}
+
+model Sale {
+  id        Int        @id @default(autoincrement())
+  note      String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  subtotal    Decimal    @db.Decimal(10, 2) // Sum of all items before discounts (calculated)
+  discount    Decimal    @default(0.00)     @db.Decimal(10, 2) // On-the-fly discount amount
+  total       Decimal    @db.Decimal(10, 2) // Final amount paid by customer (subtotal - discount)
+  
+  items     SaleItem[]
+  userId    Int
+  user      User       @relation(fields: [userId], references: [id])
+}
+
+model SaleItem {
+  id        Int      @id @default(autoincrement())
+  price     Decimal  @db.Decimal(10, 2)
+  qty       Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sale      Sale     @relation(fields: [saleId], references: [id])
+  saleId    Int
+
+  product   Product  @relation(fields: [productId], references: [id])
+  productId Int
+}
