@@ -16,22 +16,29 @@ model Unit {
   products          Product[]
 }
 
+enum StockStatus {
+  IN_STOCK
+  OUT_OF_STOCK
+}
+
 model Product {
-  id                Int                @id @default(autoincrement())
-  name              String
-  description       String?
-  price             Decimal            @db.Decimal(10, 2)
-  qty               Int
-  identifier        String             @unique
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  id                    Int                @id @default(autoincrement())
+  name                  String
+  description           String?
+  price                 Decimal            @db.Decimal(10, 2)
+  qty                   Int
+  stockStatus           StockStatus        @default(IN_STOCK)
+  identifier            String             @unique
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
-  unit              Unit               @relation(fields: [unitId], references: [id])
-  unitId            Int
+  unit                  Unit               @relation(fields: [unitId], references: [id])
+  unitId                Int
 
-  attributes        ProductAttribute[]
-  saleItems         SaleItem[]
-  purchasedProducts PurchasedProduct[] 
+  attributes            ProductAttribute[]
+  saleItems             SaleItem[]
+  purchasedProducts     PurchasedProduct[]
+  providers             Provider[]         @relation("ProductProviders")
 
   @@index([name])
   @@index([description])
@@ -46,15 +53,17 @@ model Provider {
   updatedAt DateTime   @updatedAt
 
   purchasedProducts PurchasedProduct[]
+  products          Product[]         @relation("ProductProviders")
 }
 
 model Purchase {
-  id         Int                @id @default(autoincrement())
-  note       String?            
-  createdAt  DateTime           @default(now())
-  updatedAt  DateTime           @updatedAt
+  id           Int                @id @default(autoincrement())
+  note         String?
+  purchaseDate DateTime?          @db.Date
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 
-  items      PurchasedProduct[]
+  items        PurchasedProduct[]
 }
 
 model PurchasedProduct {

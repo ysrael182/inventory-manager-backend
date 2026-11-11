@@ -11,6 +11,19 @@ export const unitSchema = {
   }
 };
 
+export const providerSchema = {
+  $id: 'Provider',
+  type: 'object',
+  required: ['id', 'name'],
+  properties: {
+    id: { type: 'integer' },
+    name: { type: 'string' },
+    contact: { type: 'string', nullable: true },
+    createdAt: { type: 'string', format: 'date-time' },
+    updatedAt: { type: 'string', format: 'date-time' }
+  }
+};
+
 export const productAttributeSchema = {
   $id: 'ProductAttribute',
   type: 'object',
@@ -38,7 +51,7 @@ export const soldItemSchema = {
 export const productSchema = {
   $id: 'Product',
   type: 'object',
-  required: ['name', 'identifier', 'price', 'qty', 'unitId'], // unitId is now required for writes
+  required: ['name', 'identifier', 'price', 'qty', 'stockStatus', 'unitId'], // unitId is now required for writes
   properties: {
     id: { type: 'integer' },
     name: { type: 'string' },
@@ -46,18 +59,20 @@ export const productSchema = {
     description: { type: 'string', nullable: true },
     price: { type: 'number', minimum: 0 },
     qty: { type: 'integer' },
+    stockStatus: { type: 'string', enum: ['IN_STOCK', 'OUT_OF_STOCK'] },
     unitId: { type: 'integer', description: 'Foreign key to the Unit table' },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
     // Nested object relations for read responses
     unit: { $ref: 'Unit#' }, 
     attributes: { type: 'array', items: { $ref: 'ProductAttribute#' } },
-    soldItems: { type: 'array', items: { $ref: 'SoldItem#' } }
+    providers: { type: 'array', items: { $ref: 'Provider#' } }
   }
 };
 
 export function registerSharedSchemas(app: FastifyInstance) {
   app.addSchema(unitSchema);
+  app.addSchema(providerSchema);
   app.addSchema(productAttributeSchema);
   app.addSchema(soldItemSchema);
   app.addSchema(productSchema);

@@ -24,6 +24,16 @@ export const getProducts = async ({ query, page = 1, pageSize = 10 }: Pagination
       where: whereClause,
       skip,
       take,
+      include: {
+        unit: true,
+        attributes: true,
+        providers: true,
+        purchasedProducts: {
+          include: {
+            provider: true,
+          },
+        },
+      },
     }),
     prisma.product.count({
       where: whereClause,
@@ -32,12 +42,41 @@ export const getProducts = async ({ query, page = 1, pageSize = 10 }: Pagination
 
   const totalPages = Math.ceil(totalItems / pageSize);
 
-   const mapppedData: Product[] = data.map((product) => ({
-    ...product,
-    price: Number(product.price), // Converts Prisma Decimal to number if needed
-    // Ensure TypeScript handles the potentially null description safely
-    description: product.description ?? null, 
-  }));
+   const mapppedData: Product[] = data.map((product) => {
+       // Extract unique providers from purchased products
+       const providers = product.purchasedProducts
+         ?.filter(pp => pp.provider)
+         .map(pp => pp.provider!)
+         // Deduplicate by provider ID
+         .filter((provider, index, self) => 
+           index === self.findIndex(p => p.id === provider.id)
+         ) ?? [];
+
+       return {
+         ...product,
+         price: Number(product.price), // Converts Prisma Decimal to number if needed
+         // Ensure TypeScript handles the potentially null description safely
+         description: product.description ?? null,
+         // Include nested relations
+         unit: product.unit ? {
+           id: product.unit.id,
+           name: product.unit.name,
+           abbreviation: product.unit.abbreviation ?? '',
+         } : undefined,
+         attributes: product.attributes?.map(attr => ({
+           id: attr.id,
+           productId: attr.productId,
+           attributeId: attr.attributeId,
+         })) ?? [],
+         providers: product.providers?.map(p => ({
+           id: p.id,
+           name: p.name,
+           contact: p.contact ?? null,
+           createdAt: p.createdAt,
+           updatedAt: p.updatedAt,
+         })) ?? [],
+       };
+     });
   // Return a structured metadata object
   return {
     data: mapppedData,

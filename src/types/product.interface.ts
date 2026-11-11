@@ -23,6 +23,7 @@ export interface Product {
   createdAt: Date;
   updatedAt: Date;
   qty: number;
+  stockStatus: 'IN_STOCK' | 'OUT_OF_STOCK';
   unitId: number;
   unit?: {
     id: number;
@@ -31,5 +32,11 @@ export interface Product {
   };
   attributes?: Attribute[];
   inventory?: Inventory[];
-  soldItems?: SoldItem[];
+  providers?: {
+    id: number;
+    name: string;
+    contact: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }[];
 }

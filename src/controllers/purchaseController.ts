@@ -1,5 +1,40 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
+
+const purchaseItemsInclude = {
+    items: {
+        include: {
+            product: {
+                select: {
+                    id: true,
+                    name: true,
+                    unit: {
+                        select: {
+                            id: true,
+                            name: true,
+                            abbreviation: true
+                        }
+                    },
+                    providers: {
+                        select: {
+                            id: true,
+                            name: true,
+                            contact: true
+                        }
+                    }
+                }
+            },
+            provider: {
+                select: {
+                    id: true,
+                    name: true,
+                    contact: true
+                }
+            }
+        }
+    }
+} satisfies Prisma.PurchaseInclude;
 
 export interface CreatePurchaseItem {
     productId: number;
@@ -10,6 +45,7 @@ export interface CreatePurchaseItem {
 
 export interface CreatePurchaseBody {
     note?: string;
+    purchaseDate?: string;
     items: CreatePurchaseItem[];
 }
 
@@ -22,6 +58,7 @@ export interface UpdatePurchaseItem {
 
 export interface UpdatePurchaseBody {
     note?: string;
+    purchaseDate?: string | null;
     items?: UpdatePurchaseItem[];
 }
 
@@ -29,14 +66,23 @@ export interface PurchaseParams {
     id: string;
 }
 
+function purchaseDateAsDate(value: string): Date {
+    return new Date(`${value}T00:00:00.000Z`);
+}
+
+function serializePurchaseDate(purchase: { purchaseDate?: Date | null } & Record<string, unknown>) {
+    return {
+        ...purchase,
+        purchaseDate: purchase.purchaseDate?.toLocaleDateString('en-GB') ?? null
+    };
+}
+
 export async function getAllPurchases(request: FastifyRequest, reply: FastifyReply) {
     try {
         const purchases = await prisma.purchase.findMany({
-            include: {
-                items: true
-            }
+            include: purchaseItemsInclude
         });
-        return reply.status(200).send(purchases);
+        return reply.status(200).send(purchases.map(serializePurchaseDate));
     } catch (error) {
         return reply.status(500).send({ message: 'Internal server error' });
     }
@@ -54,16 +100,14 @@ export async function getPurchaseById(
 
         const purchase = await prisma.purchase.findUnique({
             where: { id },
-            include: {
-                items: true
-            }
+            include: purchaseItemsInclude
         });
 
         if (!purchase) {
             return reply.status(404).send({ message: 'Purchase not found' });
         }
 
-        return reply.status(200).send(purchase);
+        return reply.status(200).send(serializePurchaseDate(purchase));
     } catch (error) {
         return reply.status(500).send({ message: 'Internal server error' });
     }
@@ -75,11 +119,14 @@ export async function createPurchase(
 ) {
     try {
         // Corregido: Ya no extraemos providerId del nivel superior de la petición
-        const { note, items } = request.body;
+        const { note, purchaseDate, items } = request.body;
 
         const newPurchase = await prisma.purchase.create({
             data: {
                 note,
+                purchaseDate: purchaseDate
+                    ? purchaseDateAsDate(purchaseDate)
+                    : purchaseDateAsDate(new Date().toISOString().slice(0, 10)),
                 items: {
                     create: items.map(item => ({
                         productId: item.productId,
@@ -89,12 +136,10 @@ export async function createPurchase(
                     }))
                 }
             },
-            include: {
-                items: true
-            }
+            include: purchaseItemsInclude
         });
 
-        return reply.status(201).send(newPurchase);
+        return reply.status(201).send(serializePurchaseDate(newPurchase));
     } catch (error) {
         // Es buena práctica registrar el error real en tu consola para debugging
         request.log.error(error); 
@@ -113,12 +158,15 @@ export async function updatePurchase(
             return reply.status(400).send({ message: 'Invalid ID format' });
         }
 
-        const { note, items } = request.body;
+        const { note, purchaseDate, items } = request.body;
 
         const updatedPurchase = await prisma.purchase.update({
             where: { id },
             data: {
                 note,
+                ...(purchaseDate !== undefined && {
+                    purchaseDate: purchaseDate === null ? null : purchaseDateAsDate(purchaseDate)
+                }),
                 // If items are provided, delete the old ones and create the new ones
                 ...(items && {
                     items: {
@@ -132,12 +180,10 @@ export async function updatePurchase(
                     }
                 })
             },
-            include: {
-                items: true
-            }
+            include: purchaseItemsInclude
         });
 
-        return reply.status(200).send(updatedPurchase);
+        return reply.status(200).send(serializePurchaseDate(updatedPurchase));
     } catch (error: any) {
         request.log.error(error); // Good practice to log the error details
         if (error.code === 'P2025') {

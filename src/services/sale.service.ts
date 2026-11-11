@@ -133,7 +133,8 @@ export const executeSaleTransaction = async (data: Sale) => {
         data: {
           qty: {
             decrement: item.qty
-          }
+          },
+          stockStatus: product.qty - item.qty > 0 ? 'IN_STOCK' : 'OUT_OF_STOCK'
         }
       });
     }
